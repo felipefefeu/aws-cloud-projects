@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Felipe deLima rosa | Cloud & FinOps Engineer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    
+    <!-- Background estático elegante e animado via JS -->
+    <div id="particles-bg"></div>
+    <div class="glow-orb"></div>
+
+    <header>
+        <div class="container header-container">
+            <div>
+                <h1 class="fade-in-up">Felipe deLima rosa</h1>
+                <p class="subtitle fade-in-up delay-1">Cloud & FinOps Engineer</p>
+                <div class="badges fade-in-up delay-2">
+                    <span class="badge aws">AWS Architecture</span>
+                    <span class="badge tf">Terraform</span>
+                    <span class="badge finops">FinOps & Governance</span>
+                </div>
+            </div>
+            <a href="https://github.com/SeuGitHubAqui" target="_blank" class="btn primary-btn fade-in-up delay-2">Visitar GitHub</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="intro fade-in-up delay-3">
+            <h2>Sobre a Galeria de Arquitetura</h2>
+            <p>Este repositório contém Provas de Conceito (PoCs) e validações de cenários de nível Enterprise focados na Nuvem AWS. Cada projeto destaca decisões de segurança, governança multi-conta e otimização de custos nativa.</p>
+        </section>
+
+        <section class="grid-gallery">
+            <!-- Project 1 -->
+            <article class="glass-card reveal" onclick="openModal(1)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/01_finops_budget.png" alt="FinOps Budget SCP">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag finops">FinOps & SCP</span>
+                        <h3>01. FinOps Budget Enforcement</h3>
+                    </div>
+                    <p>Detecção e bloqueio automático corporativo contra estouro financeiro aplicando Service Control Policies via Lambda e EventBridge.</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+            <!-- Project 2 -->
+            <article class="glass-card reveal" onclick="openModal(2)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/02_cost_report.png" alt="Cost Explorer Automation">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag analytics">Data & Analytics</span>
+                        <h3>02. Cost Explorer Report</h3>
+                    </div>
+                    <p>Geração mensal automatizada de fatura e créditos líquidos baseada na API do Cost Explorer, gerindo entrega limpa e segura com S3 e SNS.</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+            <!-- Project 3 -->
+            <article class="glass-card reveal" onclick="openModal(3)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/03_sophos_inventory.png" alt="Sophos Recon">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag security">Security Audit</span>
+                        <h3>03. Sophos Inventory Reconciliation</h3>
+                    </div>
+                    <p>Integração de APIs externas na rotina de auditoria interna para construir uma trilha viva no S3 identificando servidores desprotegidos.</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+            <!-- Project 4 -->
+            <article class="glass-card reveal" onclick="openModal(4)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/04_terraform_poc.png" alt="Terraform PoC Factory">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag tf">IaC Factory</span>
+                        <h3>04. Terraform PoC Factory</h3>
+                    </div>
+                    <p>Arquitetura de isolamento padronizado para provisionar Data Science (Bedrock) com esteiras restritas de uso diário (Auto Start/Stop).</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+            <!-- Project 5 -->
+            <article class="glass-card reveal" onclick="openModal(5)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/05_secure_data.png" alt="Secure PII Upload">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag privacy">Privacy & IAM</span>
+                        <h3>05. Secure Data Ingestion</h3>
+                    </div>
+                    <p>Mapeamento de Zona Fria de dados para remoção de PII sensível mediante integração segura Cognito/S3 barrando acessos desclassificados.</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+            <!-- Project 6 -->
+            <article class="glass-card reveal" onclick="openModal(6)">
+                <div class="card-image-wrapper">
+                    <img src="assets/images/06_multi_account_vpn.png" alt="VPN PoC">
+                </div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <span class="card-tag network">Networking</span>
+                        <h3>06. Multi-Account VPN</h3>
+                    </div>
+                    <p>Adaptação crítica de rede corporativa estabelecendo túneis IPsec (Libreswan) no enquadramento AL2023 operado sem borda ativa de SSH.</p>
+                    <button class="card-link btn-view-project">Detalhar Arquitetura &rarr;</button>
+                </div>
+            </article>
+
+        </section>
+    </main>
+
+    <!-- Estrutura do Modal Dinâmico -->
+    <div id="project-modal" class="modal" onclick="closeModal(event)">
+        <div class="modal-dialog">
+            <button class="modal-close" onclick="closeModal(event, true)">&times;</button>
+            <div class="modal-content-grid">
+                
+                <div class="modal-image-col">
+                    <img id="modal-img" src="" alt="Arquitetura Expandida">
+                </div>
+                
+                <div class="modal-text-col">
+                    <h2 id="modal-title">Título do Projeto</h2>
+                    
+                    <div class="modal-section">
+                        <h4>Desafio de Negócios</h4>
+                        <p id="modal-problem"></p>
+                    </div>
+
+                    <div class="modal-section">
+                        <h4>Impacto & Resultados</h4>
+                        <p id="modal-impact"></p>
+                    </div>
+
+                    <div class="modal-buttons">
+                        <a id="modal-github-link" href="#" target="_blank" class="btn primary-btn github-btn">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                            Explorar Código Fonte Completo (Tech Leads)
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Felipe deLima rosa - Portfólio de Engenharia Estrutural em Nuvem.</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
