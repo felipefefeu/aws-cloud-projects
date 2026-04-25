@@ -2,8 +2,8 @@
 
 This repository contains real-world cloud projects focused on AWS architecture, automation, security and FinOps, now presented through a **Dynamic GitHub Pages Portfolio**.
 
-## 🚀 Live Demo
-**[Insira o link gerado pelo GitHub Pages aqui]**
+##  Live Demo
+**https://felipefefeu.github.io/aws-cloud-projects/**
 
 ## Projects Profiled
 1. **FinOps Budget Enforcement with SCP:** Auto-restriction upon cost threshold crossing.
