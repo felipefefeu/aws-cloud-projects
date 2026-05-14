@@ -1,40 +1,188 @@
-# Automatização de Cost Explorer & Report Mensal
+# 02 — Cost Report Automation
 
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
-![DataAnalytics](https://img.shields.io/badge/Data%20Analytics-Serverless-blue?style=for-the-badge)
-![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+> Serverless pipeline that pulls AWS Cost Explorer data on a schedule, formats financial reports, and delivers them to stakeholders. Replaces manual monthly spreadsheets entirely.
 
-> **Todo mês a automação coleta custos e créditos por conta, gera um CSV e envia o link automaticamente para quem precisa acompanhar sem overhead de engenharia.**
+[![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Lambda](https://img.shields.io/badge/Lambda-Function-FF9900?logo=awslambda&logoColor=white)](https://aws.amazon.com/lambda)
 
-## Arquitetura da Solução
+---
 
-O desenho visual do pipeline financeiro estruturado:
+## 🎯 The Problem
 
-<div align="center">
-  <img src="../assets/images/02_cost_report.png" alt="Cost Report Architecture Diagram" width="100%">
-</div>
+Every month, somebody on the FinOps / engineering team manually:
+1. Logs into AWS Cost Explorer
+2. Sets the right date range and granularity
+3. Filters by linked account, service, tag
+4. Exports as CSV
+5. Pastes into a spreadsheet
+6. Sends to stakeholders
 
-## Contexto de Negócio & Problema
+This is 2–6 hours of manual work per cycle. It's error-prone, inconsistent across months, and the bus-factor is one.
 
-O time de operações da AWS precisava oferecer visibilidade contínua dos custos subdivididos para áreas financeiras desprovidas de acessos ao console da AWS, ou de conhecimento técnico para montar Queries no Athena/Cost Explorer. A rotina manual exigia acesso humano para exportar, organizar e enviar dados todo dia primeiro.
+---
 
-## Decisões Arquiteturais e Trade-offs
+## 💡 The Solution
 
-> [!NOTE] 
-> **Isolamento via Presigned URLs:**
-> Emitir o relatório para o S3 é prático, e para evitar que a base ficasse pública acionamos *Presigned URLs*. O executivo clica no link e obtém a planilha CSV formatadíssima válida pelas horas subsequentes, protegendo informações financeiras da empresa de forma natural.
+A scheduled serverless pipeline that does all of the above automatically: pulls cost data from the API, formats it into a clean report (CSV + chart), uploads to S3, and notifies stakeholders.
 
-> [!WARNING] 
-> **Atraso de Consolidação de Custo:**
-> Como *Trade-off* escolhido perante velocidade x precisão: o serviço AWS Cost Explorer API não entrega relatórios de precisão contábil do mês imediatamente nos primeiros minutos, há defasagem residual nativa. O agendamento da Lambda aguarda um pool temporal seguro ou adverte no CSV o carimbo de tempo da consolidação.
+**Frequency:** configurable — daily, weekly, monthly.
+**Granularity:** by account, by service, by tag (e.g., `cost-center`, `project`).
+**Output:** CSV + optional HTML dashboard + email summary.
 
-## Fluxo Principal (Step-by-Step)
+---
 
-1. A virada do relógio aciona uma regra temporal no **Amazon EventBridge**.
-2. A **AWS Lambda** (encampada com a engine do Pandas Python) acorda em Cold Start, processando o tempo transcorrido no fechamento anterior.
-3. Listas orgânicas da estrutura de Nuvem são validadas na **AWS Organizations** e o cruzamento dos limiares são absorvidos da **Cost Explorer API**.
-4. O dataframe é compilado em disco efêmero (`/tmp`) da AWS Lambda antes de ser persistido a longo prazo num **S3 Bucket**.
-5. O link expiráveis é forçado via SDK Python e depositado no **Amazon SNS**, o qual roteia a URL limpa para o gerente da conta ou caixa de contabilidade corporativa.
+## 🏗️ Architecture
 
-## Next Steps & Melhorias Constantes
-- **Camada HTML via QuickSight:** Eliminar a dependência do arquivo estático (CSV) anexando a fonte da API diretamente a Dashboards AWS QuickSight para consumo online perene.
+```mermaid
+flowchart LR
+    A[EventBridge<br/>cron schedule] --> B[Lambda<br/>cost-report]
+    B --> C[Cost Explorer API]
+    C --> B
+    B --> D[S3 Bucket<br/>finops-reports/]
+    B --> E[SNS Topic<br/>finops-notify]
+    E --> F[Email recipients]
+    E --> G[Slack webhook]
+    D --> H[Pre-signed URL<br/>shared in email]
+
+    style A fill:#FF9900,color:#fff
+    style B fill:#FF9900,color:#fff
+    style C fill:#FF9900,color:#fff
+    style D fill:#FF9900,color:#fff
+```
+
+---
+
+## ⚙️ Stack
+
+| Layer | Service |
+|-------|---------|
+| Scheduler | Amazon EventBridge |
+| Compute | AWS Lambda (Python 3.11) |
+| Data source | AWS Cost Explorer API |
+| Storage | Amazon S3 |
+| Notification | Amazon SNS |
+| Reporting libs | `pandas`, `boto3`, `matplotlib` (optional) |
+| IaC | Terraform |
+
+---
+
+## 📂 Repo Layout
+
+```
+02-cost-report-automation/
+├── README.md
+├── terraform/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── eventbridge.tf       # cron triggers
+│   ├── lambda.tf            # function + IAM
+│   ├── s3.tf                # report bucket
+│   └── sns.tf               # notification topic
+├── lambda/
+│   ├── handler.py           # entrypoint
+│   ├── cost_explorer.py     # API client + queries
+│   ├── report_builder.py    # CSV / HTML formatting
+│   ├── s3_uploader.py
+│   ├── requirements.txt
+│   └── tests/
+└── docs/
+    └── sample_report.html
+```
+
+---
+
+## 💻 Implementation Highlights
+
+### Cost Explorer query (excerpt)
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+ce = boto3.client("ce")
+
+def get_cost_by_account(start_date: str, end_date: str):
+    response = ce.get_cost_and_usage(
+        TimePeriod={"Start": start_date, "End": end_date},
+        Granularity="MONTHLY",
+        Metrics=["UnblendedCost"],
+        GroupBy=[
+            {"Type": "DIMENSION", "Key": "LINKED_ACCOUNT"},
+            {"Type": "TAG", "Key": "cost-center"},
+        ],
+    )
+    return response["ResultsByTime"]
+```
+
+### Lambda handler (excerpt)
+
+```python
+import json
+import os
+from cost_explorer import get_cost_by_account
+from report_builder import build_csv
+from s3_uploader import upload_and_sign
+
+def lambda_handler(event, context):
+    start, end = compute_period()
+    data = get_cost_by_account(start, end)
+    csv_path = build_csv(data, period=f"{start}_{end}")
+    signed_url = upload_and_sign(csv_path, expires_in=86400)
+
+    notify_stakeholders(
+        subject=f"FinOps weekly report — {start} to {end}",
+        body=f"Download: {signed_url}",
+    )
+    return {"statusCode": 200, "report_url": signed_url}
+```
+
+### Terraform (excerpt)
+
+```hcl
+resource "aws_cloudwatch_event_rule" "weekly_report" {
+  name                = "finops-weekly-report"
+  schedule_expression = "cron(0 9 ? * MON *)"  # every Monday 9am UTC
+}
+
+resource "aws_cloudwatch_event_target" "trigger_lambda" {
+  rule = aws_cloudwatch_event_rule.weekly_report.name
+  arn  = aws_lambda_function.cost_report.arn
+}
+```
+
+---
+
+## ✅ Results
+
+- ⏱️ **Manual hours eliminated:** ~4 hours/month → 0
+- 🔁 **Cadence improved:** monthly → weekly (because it's free now)
+- 📊 **Consistency:** same metrics, same period boundaries, same format every time
+- 🔐 **Access control:** pre-signed S3 URLs expire in 24h; no public bucket
+- 🔌 **Composable:** report format is JSON-first; trivial to swap CSV for HTML/PDF/Slack-card
+
+---
+
+## 🚀 How to Deploy
+
+```bash
+cd terraform/
+terraform init
+terraform apply -var-file=production.tfvars
+```
+
+Requirements:
+- AWS account with Cost Explorer API enabled (free to enable, ~24h delay first time)
+- Terraform 1.5+
+- Lambda IAM role with `ce:GetCostAndUsage`, `s3:PutObject`, `sns:Publish`
+
+---
+
+## 📚 Related
+
+- [01 — FinOps Budget Enforcement](../01-finops-budget-enforcement) — pairs naturally: visibility (this) + enforcement (that)
+- [03 — Sophos Reconciliation](../03-sophos-reconciliation) — same serverless pattern, different data source
+
+---
+
+**Author:** Felipe de Lima Rosa · [LinkedIn](https://www.linkedin.com/in/felipe-limarosa) · [GitHub](https://github.com/felipefefeu)

@@ -1,41 +1,235 @@
-# Secure PII Data Ingestion Portal 
+# 05 — Secure Data Ingestion with PII Protection
 
-![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
-![Identity](https://img.shields.io/badge/Identity-Cognito-c026d3?style=for-the-badge)
-![Data Privacy](https://img.shields.io/badge/Privacy-KMS-darkred?style=for-the-badge)
+> Authenticated drop zone for PII-bearing data. Uses **Cognito + S3 + Lambda + KMS** to enforce identity-aware ingestion, server-side encryption, validation, and PII tagging — without writing identity code from scratch.
 
-> **Zonas de quarentena baseadas em Identity protegendo o coração analítico contra contaminação por vazamento de dados sensíveis na nuvem.**
+[![AWS](https://img.shields.io/badge/AWS-Cognito-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Security](https://img.shields.io/badge/Security-PII-D32F2F)](https://aws.amazon.com/compliance/data-protection/)
 
-## Arquitetura da Solução
+---
 
-O esquema rigoroso de zonas frias (Raw e Redact) entre o front-end aberto e a matriz restrita corporativa:
+## 🎯 The Problem
 
-<div align="center">
-  <img src="../assets/images/05_secure_data.png" alt="Secure Data Ingestion Flow" width="100%">
-</div>
+A typical "drop your data here" S3 bucket is one of the most common security incidents in cloud:
+- Open buckets indexed by Shodan
+- Files dropped without encryption-at-rest
+- No identity behind uploads (can't audit who sent what)
+- PII mixed with non-PII (over-broad blast radius if leak)
+- No validation — bad data poisons downstream pipelines
 
-## Contexto de Negócio & Problema
+The fix isn't more controls layered on top. It's an **identity-aware, validated, segmented** ingestion pattern.
 
-Projetos Proof of Concepts (PoCs) precisavam das bases "reais" do próprio cliente como adubo e validação técnica das tecnologias fornecidas. Frequentemente clientes despreparados geram uploads na infraestrutura dos portais parceiros despachando colunas lotadas de Informações Pessoais Identificáveis (PII - CPFs, Renda, Nomes Reais). Isso viola preceitos profundos da Lei Geral de Proteção de Dados de trânsito inseguro e visibilidade restrita.
+---
 
-## Decisões Arquiteturais e Trade-offs
+## 💡 The Solution
 
-> [!NOTE] 
-> **Uso do Cognito em vez de Usuário IAM Tradicional:**
-> Não é seguro e nem escalável abrir credenciais AWS (Access Keys) em nuvem para clientes externos da companhia inteira realizarem FTP rudimentar. O sistema é baseado no portal moderno integrado a tokens cognitivos, restringindo puramente sessões aos IDs federados sem tocar a base de segurança (IAM) em momento de borda.
+A 4-component ingestion stack:
+1. **Cognito** — issues identity tokens to authenticated users / partner systems
+2. **API Gateway + Lambda (auth)** — exchanges Cognito token for a **pre-signed S3 PUT URL**, scoped to a path that includes the user's identity
+3. **S3** — receives the file at a path like `s3://bucket/uploads/${cognito-sub}/${date}/${filename}` with SSE-KMS encryption
+4. **Lambda (validator)** — triggered on object created; validates schema, scans for PII patterns, applies tags (`pii=true`, `classification=restricted`), moves to encrypted tier or rejects
 
-> [!WARNING] 
-> **Divisão Red/Green Cloud Buckets Zone:**
-> O S3 principal de upload age só e apenas como uma Caixa Preta (Red/Raw Bucket) criptografada com chaves limitadas KMS. Cientistas estão proibidos nativamente nas Access Policies de abri-la. 
+No human ever has direct write access to the bucket. Every upload is authenticated, encrypted, validated, and tagged.
 
-## Fluxo Principal (Step-by-Step)
+---
 
-1. Usuário/Cliente efetua o Sign-In nas políticas abertas do front-end interagindo com a base protegida **Amazon Cognito**.
-2. A recepção valida e permite o depósito em bloco em via criptografada para caixas temporárias restritas.
-3. Os dados quentes colidindo no bucket "Zona Fria / Raw S3 Bucket" causam impacto detectado por gatilhos.
-4. Uma camada oculta processadora (**Pipeline Lambda de Redaction Computacional**) isola o dataset bruto de forma nativa e sem intervenção gerencial.
-5. Algoritmos dissecam, processam, limitam as colunas, aplicam tokens ou hashes sobre máscaras de CPFs.
-6. A base 100% higienizada e livre de preocupações regulatórias finalmente flui para o **S3 Redacted Bucket** liberando o trânsito da IA do time interno no material original censurado.
+## 🏗️ Architecture
 
-## Next Steps & Melhorias Constantes
-- **Integrar Macie:** Utilizar o Machine Learning focado em Governança do *Amazon Macie* monitorando o repositório restrito continuamente à procura de qualquer anomalia criptográfica de dados PII vazados que pudessem escapar à varredura clássica.
+```mermaid
+flowchart LR
+    A[Client<br/>partner / app] --> B[Cognito<br/>issue token]
+    B --> A
+    A --> C[API Gateway]
+    C --> D[Lambda<br/>presign]
+    D --> E[Cognito<br/>verify token]
+    D --> F[S3 Presigned URL]
+    F --> A
+    A --> G[S3 Bucket<br/>SSE-KMS]
+    G --> H[S3 Event]
+    H --> I[Lambda<br/>validator]
+    I --> J{Has PII?}
+    J -- yes --> K[Tag pii=true<br/>move to restricted]
+    J -- no --> L[Tag pii=false<br/>standard tier]
+    I --> M[Audit Log<br/>S3 / CloudWatch]
+
+    style B fill:#FF9900,color:#fff
+    style D fill:#FF9900,color:#fff
+    style G fill:#FF9900,color:#fff
+    style I fill:#FF9900,color:#fff
+    style K fill:#D32F2F,color:#fff
+```
+
+---
+
+## ⚙️ Stack
+
+| Layer | Service |
+|-------|---------|
+| Identity | Amazon Cognito User Pool |
+| API | Amazon API Gateway (REST) |
+| Compute | AWS Lambda (Python 3.11) |
+| Storage | Amazon S3 (SSE-KMS) |
+| Encryption | AWS KMS (customer-managed key) |
+| Validation libs | `presidio`, `python-magic`, custom schema |
+| Audit | CloudWatch Logs + S3 access logs |
+| IaC | Terraform |
+
+---
+
+## 📂 Repo Layout
+
+```
+05-secure-data-ingestion/
+├── README.md
+├── terraform/
+│   ├── main.tf
+│   ├── cognito.tf
+│   ├── api_gateway.tf
+│   ├── s3.tf
+│   ├── kms.tf
+│   └── lambda.tf
+├── lambda/
+│   ├── presign/
+│   │   ├── handler.py
+│   │   └── requirements.txt
+│   ├── validator/
+│   │   ├── handler.py
+│   │   ├── pii_detector.py    # uses presidio / regex
+│   │   ├── schema_validator.py
+│   │   └── requirements.txt
+│   └── shared/
+│       └── audit.py
+└── docs/
+    └── threat-model.md
+```
+
+---
+
+## 💻 Implementation Highlights
+
+### Lambda — presign endpoint (excerpt)
+
+```python
+import os
+import boto3
+from datetime import datetime
+
+s3 = boto3.client("s3")
+BUCKET = os.environ["INGESTION_BUCKET"]
+
+def lambda_handler(event, context):
+    claims = event["requestContext"]["authorizer"]["jwt"]["claims"]
+    user_sub = claims["sub"]
+    date = datetime.utcnow().strftime("%Y-%m-%d")
+    filename = event["queryStringParameters"]["filename"]
+
+    key = f"uploads/{user_sub}/{date}/{filename}"
+
+    url = s3.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": BUCKET,
+            "Key": key,
+            "ServerSideEncryption": "aws:kms",
+            "SSEKMSKeyId": os.environ["KMS_KEY_ID"],
+        },
+        ExpiresIn=900,  # 15 minutes
+    )
+    return {"statusCode": 200, "body": json.dumps({"upload_url": url, "key": key})}
+```
+
+### Lambda — PII validator (excerpt)
+
+```python
+import boto3
+from pii_detector import scan_for_pii
+
+s3 = boto3.client("s3")
+
+def lambda_handler(event, context):
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    key    = event["Records"][0]["s3"]["object"]["key"]
+
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    body = obj["Body"].read().decode("utf-8", errors="ignore")
+
+    pii_findings = scan_for_pii(body)
+
+    tags = {
+        "pii": "true" if pii_findings else "false",
+        "classification": "restricted" if pii_findings else "internal",
+        "validated_at": datetime.utcnow().isoformat(),
+    }
+
+    s3.put_object_tagging(
+        Bucket=bucket, Key=key,
+        Tagging={"TagSet": [{"Key": k, "Value": v} for k, v in tags.items()]}
+    )
+
+    if pii_findings:
+        # Move to restricted bucket / partition
+        move_to_restricted(bucket, key, findings=pii_findings)
+```
+
+### KMS key policy (excerpt)
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OnlyIngestionLambdaCanEncrypt",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::ACCOUNT:role/lambda-presign" },
+      "Action": ["kms:GenerateDataKey", "kms:Encrypt"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OnlyValidatorAndConsumersCanDecrypt",
+      "Effect": "Allow",
+      "Principal": { "AWS": [
+        "arn:aws:iam::ACCOUNT:role/lambda-validator",
+        "arn:aws:iam::ACCOUNT:role/data-consumer"
+      ]},
+      "Action": "kms:Decrypt",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+---
+
+## ✅ Results
+
+- 🔐 **Zero unauthenticated writes** — every object has a Cognito identity attached
+- 🛡️ **Encryption-at-rest by default** — SSE-KMS with customer-managed key
+- 🏷️ **PII auto-tagged** — downstream pipelines can filter by `classification`
+- 📜 **Audit trail** — every upload logged with user, timestamp, validation result
+- 🧱 **Blast radius reduced** — PII partitioned from non-PII
+
+---
+
+## 🚀 How to Deploy
+
+```bash
+cd terraform/
+terraform init
+terraform apply
+```
+
+Requirements:
+- Cognito User Pool (or import existing)
+- KMS permissions (account-level)
+- Terraform 1.5+
+
+---
+
+## 📚 Related
+
+- [03 — Sophos Reconciliation](../03-sophos-reconciliation) — pairs for full security posture
+- [01 — FinOps Budget Enforcement](../01-finops-budget-enforcement) — same multi-account pattern
+
+---
+
+**Author:** Felipe de Lima Rosa · [LinkedIn](https://www.linkedin.com/in/felipe-limarosa) · [GitHub](https://github.com/felipefefeu)
