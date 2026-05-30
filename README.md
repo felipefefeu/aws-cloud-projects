@@ -35,4 +35,4 @@ Six real-world projects delivered in production for a corporate environment. Cod
 
 *All architecture diagrams are versioned as code — [Python Diagrams](https://diagrams.mingrammer.com/) library.*
 
-**Author:** Felipe de Lima Rosa · [LinkedIn](https://www.linkedin.com/in/felipe-limarosa) · [GitHub](https://github.com/felipefefeu)
+**Author:** Felipe de Lima Rosa · [LinkedIn](https://www.linkedin.com/in/felipe-lima-rosa) · [GitHub](https://github.com/felipefefeu)
